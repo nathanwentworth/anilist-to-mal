@@ -1,33 +1,41 @@
-import requests
-import pprint
+#!/usr/bin/env python3
 
-query = '''
-query ($username: String) {
-  MediaListCollection(userName: $username, type: ANIME) {
-    statusLists {
-      progress
-      score
-      status
-      notes
-      repeat
-      media {
-        idMal
-        episodes
-        title { romaji }
-      }
-    }
-  }
-}
-'''
+import requests, pprint, sys, getopt
+
+# Test query for https://anilist.co/graphiql
+# {
+#   MediaListCollection(userName: "nathan", type: ANIME) {
+#     statusLists {
+#       progress
+#       score
+#       status
+#       notes
+#       repeat
+#       media {
+#         idMal
+#         episodes
+#         title { romaji }
+#       }
+#     }
+#   }
+# }
+
+# What kind of output do we want
+outputFile = 'xml'
+outputTxt = ''''''
+silent = False
+showProgress = False
+name = 'anilist-export'
 
 # Define our query variables and values that will be used in the query request
 variables = {
-  'username': 'nathan'
+  'username': '',
+  'type': ''
 }
 
 url = 'https://graphql.anilist.co'
 
-def main():
+def main(argv):
 #   print('''
 #                   ┏━━━━━━━━━━━━━━━━━━┓
 #                   ┃  AniList to MAL  ┃
@@ -42,7 +50,24 @@ def main():
 # Report any problems to me on twitter! https://twitter.com/nathanwentworth
 # ''')
 
-  print('''
+  global outputFile, silent, name, showProgress
+
+  for index, arg in enumerate(argv):
+    if arg == "-f" or arg == "--file":
+      outputFile = argv[index + 1]
+    elif arg == "-u":
+      variables['username'] = argv[index + 1]
+    elif arg == "-t":
+      variables['type'] = argv[index + 1].upper()
+    elif arg == "-s":
+      silent = True
+    elif arg == "-n":
+      name = argv[index + 1]
+    elif arg == "-p":
+      showProgress = True
+
+  if not silent:
+    print('''
   ┏━━ AniList to MAL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
   ┃ An export tool for Anilist to import to MyAnimeList.          ┃
   ┃ Enter your username, and this will generate an XML file       ┃
@@ -52,7 +77,12 @@ def main():
   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ''')
 
-  getUserData()
+  if variables['username'] == '':
+    getUserData()
+  elif variables['type'] == '':
+    getListType()
+  else:
+    getAnilistData()
 
 def getUserData():
   variables['username'] = input("→ Anilist username: ")
@@ -61,24 +91,78 @@ def getUserData():
     print('Please enter a valid username!')
     getUserData()
   else:
+    getListType()
+
+def getListType():
+  variables['type'] = input("→ List type (ANIME or MANGA): ").upper()
+
+  if variables['type'] != 'ANIME' and variables['type'] != 'MANGA':
+    print('Please enter either ANIME or MANGA')
+    getListType()
+  else:
     getAnilistData()
 
 def getAnilistData():
   # Make the HTTP Api request
+  query = '''
+  query ($username: String, $type: MediaType) {
+    MediaListCollection(userName: $username, type: $type) {
+      statusLists {
+        progress
+        score
+        status
+        notes
+        repeat
+        media {
+          idMal
+          episodes
+          title { romaji }
+        }
+      }
+    }
+  }
+  '''
+
   response = requests.post(url, json={'query': query, 'variables': variables})
   jsonData = response.json()
-  statusLists = jsonData['data']['MediaListCollection']['statusLists']
-  printAniListData(statusLists)
-  convertAnilistDataToXML(statusLists)
 
-def printAniListData(data):
-  print('↓ Exported List ↓')
-  for listStatus in data:
-    print('\n##### ' + listStatus.capitalize() + ' #####')
+  if ('errors' in jsonData):
+    for error in jsonData['errors']:
+      print(error['message'])
+    print('Your username may be incorrect, or Anilist might be down.')
+    return
+
+  statusLists = jsonData['data']['MediaListCollection']['statusLists']
+  if len(statusLists) < 1:
+    print('No items found in this list!\nDid you enter the wrong username?')
+    return;
+  convertAnilistDataToTxt(statusLists)
+  if outputFile == 'xml':
+    convertAnilistDataToXML(statusLists)
+  elif outputFile == 'txt':
+    writeToFile(outputTxt)
+
+def convertAnilistDataToTxt(data):
+  listOrder = ['current', 'paused', 'completed', 'planning', 'dropped']
+
+  global outputTxt
+  outputTxt = "# Anime List\n"
+  for listStatus in listOrder:
+    outputTxt += '\n## ' + listStatus.capitalize() + '\n'
     for item in data[listStatus]:
-      print(' - ' + str(item['media']['title']['romaji']))
-  print('\n✔︎ Successfully exported!')
-  print('\nGo to https://myanimelist.net/import.php and select "MyAnimeList Import" under import type.\n')
+      outputTxt += '- '
+
+      progress = '{0: >3}'.format(str(item['progress'])) + '/' + '{0: <3}'.format(str(item['media']['episodes']))
+      if showProgress and listStatus == 'current' or listStatus == 'paused' or listStatus == 'dropped':
+        outputTxt += progress + ' '
+      else:
+        outputTxt += '        ' # 8 characters, same as progress block
+
+      title = str(item['media']['title']['romaji'])
+      outputTxt += title + '\n'
+
+  if not silent:
+    print(outputTxt)
 
 def convertAnilistDataToXML(data):
   output = '''<?xml version="1.0" encoding="UTF-8" ?>
@@ -132,12 +216,17 @@ def convertAnilistDataToXML(data):
 
   output += '      </myanimelist>'
 
-  writeToXMLFile(output)
+  writeToFile(output)
 
-def writeToXMLFile(output):
-  f = open('anilist-export.xml', 'w')
+  if not silent:
+    print('✔︎ Successfully exported!')
+    print('\nGo to https://myanimelist.net/import.php and select "MyAnimeList Import" under import type.\n')
+
+
+def writeToFile(output):
+  f = open(name + '.' + outputFile, 'w')
   f.write(output)
   f.close()
 
-
-main()
+if __name__ == '__main__':
+  main(sys.argv)
