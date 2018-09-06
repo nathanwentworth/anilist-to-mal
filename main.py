@@ -30,7 +30,7 @@ name = 'anilist-export'
 # Define our query variables and values that will be used in the query request
 variables = {
   'username': '',
-  'type': ''
+  'type': 'ANIME'
 }
 
 url = 'https://graphql.anilist.co'
@@ -90,8 +90,10 @@ def getUserData():
   if variables['username'] == '':
     print('Please enter a valid username!')
     getUserData()
-  else:
+  elif variables['type'] == '':
     getListType()
+  else:
+    getAnilistData()
 
 def getListType():
   variables['type'] = input("→ List type (ANIME or MANGA): ").upper()
@@ -109,11 +111,14 @@ def getAnilistData():
     MediaListCollection(userName: $username, type: $type) {
       statusLists {
         progress
+        progressVolumes
         score
         status
         notes
         repeat
         media {
+          chapters
+          volumes
           idMal
           episodes
           title { romaji }
@@ -136,69 +141,77 @@ def getAnilistData():
   if len(statusLists) < 1:
     print('No items found in this list!\nDid you enter the wrong username?')
     return;
-  convertAnilistDataToTxt(statusLists)
+  if silent == False:
+    convertAnilistDataToTxt(statusLists)
   if outputFile == 'xml':
     convertAnilistDataToXML(statusLists)
   elif outputFile == 'txt':
+    if silent == True:
+      convertAnilistDataToTxt(statusLists)
     writeToFile(outputTxt)
 
 def convertAnilistDataToTxt(data):
+  print(data)
   listOrder = ['current', 'paused', 'completed', 'planning', 'dropped']
 
   global outputTxt
-  outputTxt = "# Anime List\n"
+  if variables['type'] == 'ANIME':
+    outputTxt = "# Anime List\n"
+  else:
+    outputTxt = "# Manga List\n"
+
   for listStatus in listOrder:
-    outputTxt += '\n## ' + listStatus.capitalize() + '\n'
-    for item in data[listStatus]:
-      outputTxt += '- '
+    if listStatus in data:
+      outputTxt += '\n## ' + listStatus.capitalize() + '\n'
+      for item in data[listStatus]:
+        outputTxt += '- '
 
-      progress = '{0: >3}'.format(str(item['progress'])) + '/' + '{0: <3}'.format(str(item['media']['episodes']))
-      if showProgress and listStatus == 'current' or listStatus == 'paused' or listStatus == 'dropped':
-        outputTxt += progress + ' '
-      else:
-        outputTxt += '        ' # 8 characters, same as progress block
+        progress = '{0: >3}'.format(str(item['progress'])) + '/' + '{0: <3}'.format(str(item['media']['episodes']))
+        if showProgress and listStatus == 'current' or listStatus == 'paused' or listStatus == 'dropped':
+          outputTxt += progress + ' '
+        else:
+          outputTxt += '        ' # 8 characters, same as progress block
 
-      title = str(item['media']['title']['romaji'])
-      outputTxt += title + '\n'
+        title = str(item['media']['title']['romaji'])
+        outputTxt += title + '\n'
 
   if not silent:
     print(outputTxt)
 
 def convertAnilistDataToXML(data):
-  output = '''<?xml version="1.0" encoding="UTF-8" ?>
-    <!--
-     Created by XML Export feature at MyAnimeList.net
-     Programmed by Xinil
-     Last updated 5/27/2008
-    -->
-
-    <myanimelist>
-
-      <myinfo>
-        <user_id>526891</user_id>
-        <user_name>nathanwentworth</user_name>
-        <user_export_type>1</user_export_type>
-        <user_total_anime>357</user_total_anime>
-        <user_total_watching>6</user_total_watching>
-        <user_total_completed>150</user_total_completed>
-        <user_total_onhold>14</user_total_onhold>
-        <user_total_dropped>27</user_total_dropped>
-        <user_total_plantowatch>160</user_total_plantowatch>
-      </myinfo>
-
-'''
+  output = ''''''
+  user_total_anime = 0
+  user_total_watching = 0
+  user_total_completed = 0
+  user_total_onhold = 0
+  user_total_dropped = 0
+  user_total_plantowatch = 0
 
   for listStatus in data:
     for item in data[listStatus]:
       s = str(item['status'])
+      # print(s)
       if s == "PLANNING":
-        s = "Plan to Watch"
+        if variables['type'] == 'ANIME':
+          s = "Plan to Watch"
+        else:
+          s = "Plan to Read"
+        user_total_plantowatch += 1
       elif s == "DROPPED":
         s = "Dropped"
+        user_total_dropped += 1
       elif s == "CURRENT":
-        s = "Watching"
+        if variables['type'] == 'ANIME':
+          s = "Watching"
+        else:
+          s = "Reading"
+        user_total_watching += 1
       elif s == "PAUSED":
         s = "On-Hold"
+        user_total_onhold += 1
+      elif "completed" in s.lower():
+        s = "Completed"
+        user_total_completed += 1
 
       animeItem = ''
       animeItem += '        <anime>\n'
@@ -213,8 +226,32 @@ def convertAnilistDataToXML(data):
       animeItem += '        </anime>\n\n'
 
       output += animeItem
+      user_total_anime += 1
 
-  output += '      </myanimelist>'
+
+  outputStart = '''<?xml version="1.0" encoding="UTF-8" ?>
+    <!--
+     Created by XML Export feature at MyAnimeList.net
+     Programmed by Xinil
+     Last updated 5/27/2008
+    -->
+
+    <myanimelist>
+
+      <myinfo>
+        <user_id>123456</user_id>
+        <user_name>''' + variables['username'] + '''</user_name>
+        <user_export_type>1</user_export_type>
+        <user_total_anime>''' + str(user_total_anime) + '''</user_total_anime>
+        <user_total_watching>''' + str(user_total_watching) + '''</user_total_watching>
+        <user_total_completed>''' + str(user_total_completed) + '''</user_total_completed>
+        <user_total_onhold>''' + str(user_total_onhold) + '''</user_total_onhold>
+        <user_total_dropped>''' + str(user_total_dropped) + '''</user_total_dropped>
+        <user_total_plantowatch>''' + str(user_total_plantowatch) + '''</user_total_plantowatch>
+      </myinfo>
+
+'''
+  output = outputStart + output + '      </myanimelist>'
 
   writeToFile(output)
 
