@@ -152,7 +152,7 @@ def getAnilistData():
 
 def convertAnilistDataToTxt(data):
   print(data)
-  listOrder = ['current', 'paused', 'completed', 'planning', 'dropped']
+  # listOrder = ['current', 'paused', 'completed', 'planning', 'dropped']
 
   global outputTxt
   if variables['type'] == 'ANIME':
@@ -160,7 +160,7 @@ def convertAnilistDataToTxt(data):
   else:
     outputTxt = "# Manga List\n"
 
-  for listStatus in listOrder:
+  for listStatus in data:
     if listStatus in data:
       outputTxt += '\n## ' + listStatus.capitalize() + '\n'
       for item in data[listStatus]:
