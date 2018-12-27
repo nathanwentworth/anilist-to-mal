@@ -151,8 +151,7 @@ def getAnilistData():
     writeToFile(outputTxt)
 
 def convertAnilistDataToTxt(data):
-  print(data)
-  # listOrder = ['current', 'paused', 'completed', 'planning', 'dropped']
+  listOrder = ['current', 'completed', 'paused', 'planning', 'dropped']
 
   global outputTxt
   if variables['type'] == 'ANIME':
@@ -160,20 +159,26 @@ def convertAnilistDataToTxt(data):
   else:
     outputTxt = "# Manga List\n"
 
-  for listStatus in data:
+  for listStatus in listOrder:
     if listStatus in data:
       outputTxt += '\n## ' + listStatus.capitalize() + '\n'
+      data[listStatus].sort(key=lambda show: show['score'], reverse=True)
       for item in data[listStatus]:
         outputTxt += '- '
 
-        progress = '{0: >3}'.format(str(item['progress'])) + '/' + '{0: <3}'.format(str(item['media']['episodes']))
+        progress = '{0: >3}'.format(str(item['progress'])) + '/'
+        progress += '{0: <3}'.format(str(item['media']['episodes']) if item['media']['episodes'] is not None else '??')
         if showProgress and listStatus == 'current' or listStatus == 'paused' or listStatus == 'dropped':
           outputTxt += progress + ' '
         else:
           outputTxt += '        ' # 8 characters, same as progress block
 
         title = str(item['media']['title']['romaji'])
-        outputTxt += title + '\n'
+        outputTxt += title
+
+        if item['score'] > 0:
+          outputTxt += '\tScore: ' + str(item['score']) + '/10'
+        outputTxt += '\n'
 
   if not silent:
     print(outputTxt)
