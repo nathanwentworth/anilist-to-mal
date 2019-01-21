@@ -112,7 +112,7 @@ def getAnilistData():
       statusLists {
         progress
         progressVolumes
-        score
+        score(format: POINT_10)
         status
         notes
         repeat
