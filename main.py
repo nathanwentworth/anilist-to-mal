@@ -261,7 +261,7 @@ def convertAnilistDataToXML(data):
 
 
 def writeToFile(output):
-  f = open(name + '.' + outputFile, 'w')
+  f = open(name + variables['type'] + '.' + outputFile, 'w')
   f.write(output)
   f.close()
 
