@@ -1,3 +1,6 @@
+# *IMPORTANT*
+It seems like anilist's GraphQL API has changed in the last few months, so currently this does not work. I'll try to have a fix up as soon as possible.
+
 # Anilist to MAL
 Anilist to MAL is a simple python tool that lets you export your anime list from [AniList](https://anilist.co) to [MyAnimeList](https://myanimelist.net).
 
