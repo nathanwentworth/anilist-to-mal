@@ -5,17 +5,26 @@ import requests, pprint, sys, getopt
 # Test query for https://anilist.co/graphiql
 # {
 #   MediaListCollection(userName: "nathan", type: ANIME) {
-#     statusLists {
-#       progress
-#       score
-#       status
-#       notes
-#       repeat
-#       media {
-#         idMal
-#         episodes
-#         title { romaji }
+#     lists {
+#       entries {
+#         id
+#         status
+#         score(format: POINT_10)
+#         progress
+#         notes
+#         repeat
+#         media {
+#           chapters
+#           volumes
+#           idMal
+#           episodes
+#           title { romaji }
+#         }
 #       }
+#       name
+#       isCustomList
+#       isSplitCompletedList
+#       status
 #     }
 #   }
 # }
@@ -109,20 +118,26 @@ def getAnilistData():
   query = '''
   query ($username: String, $type: MediaType) {
     MediaListCollection(userName: $username, type: $type) {
-      statusLists {
-        progress
-        progressVolumes
-        score(format: POINT_10)
-        status
-        notes
-        repeat
-        media {
-          chapters
-          volumes
-          idMal
-          episodes
-          title { romaji }
+      lists {
+        entries {
+          id
+          status
+          score(format: POINT_10)
+          progress
+          notes
+          repeat
+          media {
+            chapters
+            volumes
+            idMal
+            episodes
+            title { romaji }
+          }
         }
+        name
+        isCustomList
+        isSplitCompletedList
+        status
       }
     }
   }
@@ -137,7 +152,7 @@ def getAnilistData():
     print('Your username may be incorrect, or Anilist might be down.')
     return
 
-  statusLists = jsonData['data']['MediaListCollection']['statusLists']
+  statusLists = jsonData['data']['MediaListCollection']['lists']
   if len(statusLists) < 1:
     print('No items found in this list!\nDid you enter the wrong username?')
     return;
@@ -192,8 +207,8 @@ def convertAnilistDataToXML(data):
   user_total_dropped = 0
   user_total_plantowatch = 0
 
-  for listStatus in data:
-    for item in data[listStatus]:
+  for x in range(0, len(data)):
+    for item in data[x]['entries']:
       s = str(item['status'])
       # print(s)
       if s == "PLANNING":
