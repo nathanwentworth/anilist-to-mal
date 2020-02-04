@@ -35,7 +35,8 @@ outputTxt = ''''''
 silent = False
 showProgress = False
 name = 'anilist-export'
-
+listName = ''
+complete = True
 # Define our query variables and values that will be used in the query request
 variables = {
   'username': '',
@@ -59,7 +60,7 @@ def main(argv):
 # Report any problems to me on twitter! https://twitter.com/nathanwentworth
 # ''')
 
-  global outputFile, silent, name, showProgress
+  global outputFile, silent, name, showProgress, listName, complete
 
   for index, arg in enumerate(argv):
     if arg == "-f" or arg == "--file":
@@ -74,6 +75,8 @@ def main(argv):
       name = argv[index + 1]
     elif arg == "-p":
       showProgress = True
+    elif arg == "-l":
+      listName = argv[index + 1]
 
   if not silent:
     print('''
@@ -85,6 +88,9 @@ def main(argv):
   ┃ Report any problems here: https://twitter.com/nathanwentworth ┃
   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ''')
+
+  if (listName != ''):
+    complete = False
 
   if variables['username'] == '':
     getUserData()
@@ -119,6 +125,7 @@ def getAnilistData():
   query ($username: String, $type: MediaType) {
     MediaListCollection(userName: $username, type: $type) {
       lists {
+        name
         entries {
           id
           status
@@ -208,45 +215,46 @@ def convertAnilistDataToXML(data):
   user_total_plantowatch = 0
 
   for x in range(0, len(data)):
-    for item in data[x]['entries']:
-      s = str(item['status'])
-      # print(s)
-      if s == "PLANNING":
-        if variables['type'] == 'ANIME':
-          s = "Plan to Watch"
-        else:
-          s = "Plan to Read"
-        user_total_plantowatch += 1
-      elif s == "DROPPED":
-        s = "Dropped"
-        user_total_dropped += 1
-      elif s == "CURRENT":
-        if variables['type'] == 'ANIME':
-          s = "Watching"
-        else:
-          s = "Reading"
-        user_total_watching += 1
-      elif s == "PAUSED":
-        s = "On-Hold"
-        user_total_onhold += 1
-      elif "completed" in s.lower():
-        s = "Completed"
-        user_total_completed += 1
+    if (data[x]['name'] == listName or complete):
+      for item in data[x]['entries']:
+        s = str(item['status'])
+        # print(s)
+        if s == "PLANNING":
+          if variables['type'] == 'ANIME':
+            s = "Plan to Watch"
+          else:
+            s = "Plan to Read"
+          user_total_plantowatch += 1
+        elif s == "DROPPED":
+          s = "Dropped"
+          user_total_dropped += 1
+        elif s == "CURRENT":
+          if variables['type'] == 'ANIME':
+            s = "Watching"
+          else:
+            s = "Reading"
+          user_total_watching += 1
+        elif s == "PAUSED":
+          s = "On-Hold"
+          user_total_onhold += 1
+        elif "completed" in s.lower():
+          s = "Completed"
+          user_total_completed += 1
 
-      animeItem = ''
-      animeItem += '        <anime>\n'
-      animeItem += '          <series_animedb_id>' + str(item['media']['idMal']) + '</series_animedb_id>\n'
-      animeItem += '          <series_episodes>' + str(item['media']['episodes']) + '</series_episodes>\n'
-      animeItem += '          <my_watched_episodes>' + str(item['progress']) + '</my_watched_episodes>\n'
-      animeItem += '          <my_score>' + str(item['score']) + '</my_score>\n'
-      animeItem += '          <my_status>' + s + '</my_status>\n'
-      animeItem += '          <my_times_watched>' + str(item['repeat']) + '</my_times_watched>\n'
+        animeItem = ''
+        animeItem += '        <anime>\n'
+        animeItem += '          <series_animedb_id>' + str(item['media']['idMal']) + '</series_animedb_id>\n'
+        animeItem += '          <series_episodes>' + str(item['media']['episodes']) + '</series_episodes>\n'
+        animeItem += '          <my_watched_episodes>' + str(item['progress']) + '</my_watched_episodes>\n'
+        animeItem += '          <my_score>' + str(item['score']) + '</my_score>\n'
+        animeItem += '          <my_status>' + s + '</my_status>\n'
+        animeItem += '          <my_times_watched>' + str(item['repeat']) + '</my_times_watched>\n'
 
-      animeItem += '          <update_on_import>1</update_on_import>\n'
-      animeItem += '        </anime>\n\n'
+        animeItem += '          <update_on_import>1</update_on_import>\n'
+        animeItem += '        </anime>\n\n'
 
-      output += animeItem
-      user_total_anime += 1
+        output += animeItem
+        user_total_anime += 1
 
 
   outputStart = '''<?xml version="1.0" encoding="UTF-8" ?>

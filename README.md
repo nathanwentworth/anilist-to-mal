@@ -1,6 +1,10 @@
 # Anilist to MAL
 Anilist to MAL is a simple python tool that lets you export your anime list from [AniList](https://anilist.co) to [MyAnimeList](https://myanimelist.net).
 
+## Changes of this fork
+
+* This version allows to export a **specific list** (with -l option) created in your Anilist profile in order to export only the contents of this list and not full list. (Only implemented for XML format)
+
 ## Usage
 This app requires [Python 3](https://www.python.org/downloads/) and [Python Requests](http://docs.python-requests.org/en/master/).
 
@@ -22,5 +26,4 @@ In addition to the step-by-step method, you can pass some arguments to the scrip
 - `-s`: takes zero arguments, run in silent mode (no non-essential prints)
 - `-p`: takes zero arguments, show progress while running
 
-## Issues
-Feel free to leave an issue on Github or [tweet at me](https://twitter.com/nathanwentworth)
+- `-l`: select a specific list to export of your profile (default `''`)
